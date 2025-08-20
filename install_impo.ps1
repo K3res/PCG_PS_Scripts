@@ -3,31 +3,42 @@
 
 <#
 .SYNOPSIS
-    Analysiert ein PowerShell-Skript, um fehlende Modul-Abhängigkeiten zu finden und zu installieren.
-.DESCRIPTION
-    Dieses Skript liest eine angegebene .ps1-Datei, extrahiert alle verwendeten Befehle,
-    sucht nach den dazugehörigen Modulen in der PowerShell Gallery und installiert alle,
-    die auf dem lokalen System noch nicht vorhanden sind.
-.PARAMETER ScriptPath
-    Der vollständige Pfad zur .ps1-Datei, die analysiert werden soll.
-.EXAMPLE
-    .\Install-RequiredModules.ps1 -ScriptPath "C:\Scripts\VirtualMachines.ps1"
+    Sucht nach einem bestimmten Skript auf dem System, analysiert es
+    und installiert alle fehlenden Modul-Abhängigkeiten.
 #>
-param(
-    [Parameter(Mandatory = $true)]
-    [string]$ScriptPath
-)
 
-# Überprüfen, ob die Skriptdatei existiert
-if (-not (Test-Path -Path $ScriptPath -PathType Leaf)) {
-    Write-Error "Die angegebene Datei '$ScriptPath' wurde nicht gefunden."
+# --- KONFIGURATION ---
+# Der Name der Skriptdatei, die gesucht werden soll.
+$scriptNameToFind = "VirtualMachines.ps1"
+
+# Das Laufwerk, das durchsucht werden soll (z.B. "C:\", "D:\", oder "C:\Users\DeinName").
+$searchPath = "C:\"
+# --------------------
+
+Write-Host "Suche nach '$scriptNameToFind' im Verzeichnis '$searchPath'. Dies kann einige Minuten dauern..." -ForegroundColor Cyan
+
+# Führe die Suche durch. Fehler wie "Zugriff verweigert" werden ignoriert.
+$foundFiles = Get-ChildItem -Path $searchPath -Filter $scriptNameToFind -Recurse -ErrorAction SilentlyContinue
+
+# Auswertung der Suchergebnisse
+if ($foundFiles.Count -eq 0) {
+    Write-Error "Die Datei '$scriptNameToFind' konnte auf dem Laufwerk '$searchPath' nicht gefunden werden."
+    return
+}
+elseif ($foundFiles.Count -gt 1) {
+    Write-Warning "Es wurden mehrere Dateien mit dem Namen '$scriptNameToFind' gefunden. Bitte gib den genauen Pfad an."
+    Write-Host "Gefundene Pfade:"
+    $foundFiles.FullName | ForEach-Object { Write-Host "- $_" }
     return
 }
 
-Write-Host "Analysiere Skript: '$ScriptPath'..." -ForegroundColor Green
+# --- Wenn genau eine Datei gefunden wurde, geht es hier weiter ---
+$scriptPath = $foundFiles.FullName
+Write-Host "Datei gefunden: '$scriptPath'" -ForegroundColor Green
+Write-Host "Analysiere Skript..." -ForegroundColor Green
 
 # Skript-Inhalt parsen, um alle Befehle zu extrahieren
-$ast = [System.Management.Automation.Language.Parser]::ParseFile($ScriptPath, [ref]$null, [ref]$null)
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$null, [ref]$null)
 $commands = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true) | ForEach-Object { $_.GetCommandName() } | Sort-Object -Unique
 
 if ($null -eq $commands) {
@@ -41,15 +52,11 @@ Write-Host "Gefundene Befehle: $($commands.Count)"
 $modulesToInstall = [System.Collections.Generic.List[string]]::new()
 
 foreach ($command in $commands) {
-    # Prüfen, ob der Befehl lokal bereits existiert
-    $localCommand = Get-Command $command -ErrorAction SilentlyContinue
-    if ($null -ne $localCommand) {
-        continue # Befehl ist bereits vorhanden, nächster
+    if ($null -ne (Get-Command $command -ErrorAction SilentlyContinue)) {
+        continue
     }
 
     Write-Host "Befehl '$command' nicht lokal gefunden. Suche in der PowerShell Gallery..." -ForegroundColor Yellow
-    
-    # Wenn nicht lokal vorhanden, online in der PowerShell Gallery suchen
     try {
         $foundModule = (Find-Module -Command $command -Repository PSGallery -ErrorAction Stop).Name
         if ($foundModule -and $modulesToInstall -notcontains $foundModule) {
