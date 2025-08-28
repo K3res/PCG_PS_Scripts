@@ -1,4 +1,4 @@
-$url = 'http://10.212.134.201:2222/'
+$url = 'http://192.168.153.155:2222/'
 
 try {
     # Versuche, die Webseite abzurufen.
