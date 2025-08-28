@@ -1,1 +1,2 @@
-Get-PSDrive | ?{$_.free -gt 1}
+$resultString = "Verfügbare Laufwerke: $((Get-PSDrive | Where-Object {$_.Free -gt 1} | Select-Object -ExpandProperty Name) -join ', ')"
+$resultString
