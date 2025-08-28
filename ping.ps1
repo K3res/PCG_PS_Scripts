@@ -1,5 +1,5 @@
 # Definiere das Ziel
-$ipAddress = "10.212.134.201" # Ersetze dies mit deiner Ziel-IP
+$ipAddress = "192.168.153.155" # Ersetze dies mit deiner Ziel-IP
 $port = 2222
 
 # Führe den Verbindungstest durch
